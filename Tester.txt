@@ -1,0 +1,8 @@
+Var entero x, y, contador;
+Var decimal z, promedio;
+
+x = 10;
+y = -5;
+contador = x + 3;
+z = 3.14;
+promedio = z + 2.5;
