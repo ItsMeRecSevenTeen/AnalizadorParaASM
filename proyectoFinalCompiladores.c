@@ -2,10 +2,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 struct tex {
     int id;
-    char lex[30]; // Inicializar con ceros para evitar basura
+    char lex[30];
     char tok[3];
     char tipoDato[20];
     struct tex* sig;
@@ -17,7 +18,10 @@ char entrada[50][70] = {0};//Matriz para almacenar líneas del archivo
 //Tamaño máximo de 50 líneas y 70 caracteres por línea
 char palabras[50][10] = {0};//Matriz para almacenar palabras separadas por espacios
 //con un máximo de 50 palabras y 10 caracteres por palabra
-
+char lexemas[50][10] = {0};
+struct tex *ini = NULL, *fin = NULL, *aux = NULL;//Punteros para la tabla de símbolos
+unsigned int id = 0;
+unsigned int k = 0; // Counter for number of words separated by spaces
 //-------------------------------------------------------
 void obtenerRutaArchivo(){
     int rutaValida = 0;
@@ -52,15 +56,14 @@ void obtencionContenidoArchivo(){
     printf("\n--------------------------------------\n");
 }
 
-void separarPalabrasPorEspacios(){
-    char palabra[10] = "";
-    int i, j = 0, k = 0, fila = 0;
 
-    for (fila = 0; fila < 50; fila++) {
-        if (strlen(entrada[fila]) == 0) break; // Salir si la línea está vacía
-        
+void separarPalabrasPorEspacios(){
+    char palabra[15] = "";
+    int i, j = 0, fila = 0;
+    k = 0; // Reseteo a 0 
+    while (strlen(entrada[fila]) > 0) {
         for (i = 0; i <= strlen(entrada[fila]); i++) {
-            if (entrada[fila][i] != ' ' && entrada[fila][i] != '\0' && entrada[fila][i] != '\n') {
+            if (entrada[fila][i] != ' ' && entrada[fila][i] != '\0' && entrada[fila][i] != '\n' && entrada[fila][i] != ',' && entrada[fila][i] != ';') {
                 palabra[j++] = entrada[fila][i];
             }
             else {
@@ -72,16 +75,18 @@ void separarPalabrasPorEspacios(){
                 }
             }
         }
+        fila++;
     }
 }
-struct tex *ini = NULL, *fin = NULL, *aux = NULL;
-unsigned int id = 0;
+
 void agregaTablaSimbolos(char L[30], char T[3])
 {
     if (ini == NULL)
     {
         ini = malloc(sizeof(struct tex));
-        ini->id++;
+        ini->id = id++;
+        memset(ini->lex, 0, sizeof(ini->lex)); //Limpiar basura de memoria
+        memset(ini->tok, 0, sizeof(ini->tok)); //Limpiar basura de memoria
         strcpy(ini->lex, L);
         strcpy(ini->tok, T);
         ini->sig = NULL;
@@ -90,6 +95,9 @@ void agregaTablaSimbolos(char L[30], char T[3])
     else
     {
         aux = malloc(sizeof(struct tex));
+        aux->id = id++;
+        memset(aux->lex, 0, sizeof(aux->lex)); //Limpiar basura de memoria
+        memset(aux->tok, 0, sizeof(aux->tok)); //Limpiar basura de memoria
         strcpy(aux->lex, L);
         strcpy(aux->tok, T);
         aux->sig = NULL;
@@ -102,96 +110,391 @@ void tokenizador(char cadEnt[100]) {
     char L[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     char D[] = "0123456789";
     char O[] = "+-*/%";
-    char arr[10][10] = {"if", "for","else","char","while","case", "switch","default","return","int"};
-    int caso = 0; // estado actual
-    int cont = 0; // posición en la cadena
-    int lenCad;
-    int tipo = -1; // 0 = palabra, 1 = operador, 2 = identificador
-    lenCad = strlen(cadEnt);
+    char AG[] = "(){}[]";
+    char OR[] = "<>=!";
+    char OL[] = "&|!";
+    char RESERVADAS[10][10] = {
+        "if", "else", "for", "while", "switch", "case", "default", "return", "int", "char"};
+    
+     int i = 0, k = 0;
 
-    char let = cadEnt[cont];
-
-    while (cont < lenCad)
+        while (1)
+        {
+            if (cadEnt[i] != ' ' && cadEnt[i] != '\n' && cadEnt[i] != '\0')
             {
-                switch (caso)
-                {
-                case 0: // q0: estado inicial
-                    if (strchr(L, let))
-                    {
-                        caso = 1; // va a palabra o identificador
-                        tipo = 0;
-                    }
-                    else if (strchr(O, let) && lenCad == 1)
-                    {
-                        caso = 2; // Caso cuando es un operador
-                        tipo = 1;
-                    }
-                    else
-                    {
-                        caso = 3; // Caso cuando es invalido
-                    }
-                    break;
-
-                case 1: // q1: letras → palabra o identificador
-                    if (strchr(L, let))
-                    {
-                        // sigue siendo válido: palabra o identificador
-                    }
-                    else if (strchr(D, let))
-                    {
-                        tipo = 2; // ya no es palabra, ahora es un identificador
-                    }
-                    else
-                    {
-                        caso = 3; // invalido
-                    }
-                    break;
-
-                case 2: // Operador Validado
-                    break;
-
-                case 3:            // inválido
-                    cont = lenCad; // forzar salida
-                    break;
-                }
-
-                cont++;
-                let = cadEnt[cont]; // siguiente caracter
-            }
-
-            if (caso == 1 && tipo == 0)
-            {
-                printf("Es una PALABRA\n");
-                agregaTablaSimbolos(cadEnt, "Palabra");
-            }
-            else if (caso == 2 && tipo == 1)
-            {
-                printf("Es un OPERADOR ARITMÉTICO\n");
-                agregaTablaSimbolos(cadEnt, "Operador");
-            }
-            else if (caso == 1 && tipo == 2)
-            {
-                printf("Es un IDENTIFICADOR\n");
-                agregaTablaSimbolos(cadEnt, "Identificador");
+                cadEnt[k++] = cadEnt[i]; // Verifica que la línea no esté vacía
             }
             else
             {
-                printf("No es válido\n");
+                if (k > 0)
+                {
+                    cadEnt[k] = '\0';
+                    int caso = 0, cont = 0, tipo = -1;
+                    int lenCad = strlen(cadEnt);
+                    char let = cadEnt[cont];
+
+                    while (cont < lenCad)
+                    {
+                        switch (caso)
+                        {
+                        case -1: // inválido
+                        cont = lenCad;
+                        break;
+                        case 0: // estado inicial
+                            if (strchr(L, let))
+                            {
+                                caso = 1; // palabra o identificador
+                                tipo = 0;
+                            }
+                            else if (strchr(D, let))
+                            {
+                                caso = 4; // número entero
+                                tipo = 4;
+                            }
+                            else if ((let == '+' || let == '-') && lenCad > 1 && strchr(D, cadEnt[cont + 1]))
+                            {
+                                caso = 4;
+                                tipo = 4;
+                            }
+                            else if (strchr(O, let) && lenCad == 1)
+                            {
+                                // Caso: operador aritmético puro (+, -, *, /, %)
+                                caso = 2;
+                                tipo = 1;
+                            }
+
+                            else if (strchr(OR, let))
+                            {
+                                caso = 5; // relacional
+                                tipo = 2;
+                            }
+                            else if (strchr(OL, let) && lenCad == 1)
+                            {
+                                caso = 6; // lógico
+                                tipo = 3;
+                            }
+                            else if (strchr(AG, let) && lenCad == 1)
+                            {
+                                caso = 3; // agrupación
+                                tipo = 7; 
+                            }
+                            
+                            else
+                            {
+                                caso = -1; // inválido
+                            }
+                            break;
+
+                        case 1: // Identificador
+                            if (strchr(L, let))
+                            {
+                                // sigue como Identificador
+                            }
+                            else if (strchr(D, let))
+                            {
+                                tipo = 2; // Tipo para identificador
+                            }
+                            else
+                            {
+                                caso = -1; // No es valido
+                            }
+                            break;
+                        case 2: // operador aritmético validado
+                            if (strchr(D, let))
+                            {
+                                caso = 4; // Digitos despues de + o -
+                            }
+                            break;
+                        case 3:
+                        if (strchr(AG, let))
+                        {
+                            tipo = 7; // agrupación
+                            caso = -1; // no puede tener más caracteres
+                        }
+                            break;
+                        case 4: // número entero
+                            if (strchr(D, let))
+                            {
+                                // sigue siendo número entero
+                            }
+                            else if (let == '.')
+                            {
+                                caso = 10; // posible decimal
+                            }
+                            else if (let == 'E')
+                            {
+                                caso = 7; // exponencial
+                            }else if(strchr(L, let)){
+                                caso = 1; // palabra o identificador
+                                tipo = 0;
+                            }
+                            break;
+
+                        case 5: // relacional
+                            if ((let == '=' && (cadEnt[cont - 1] == '!' || cadEnt[cont - 1] == '<' || cadEnt[cont - 1] == '>' || cadEnt[cont - 1] == '=')))
+                            {
+
+                                tipo = 2;
+                                caso = 5; // sigue siendo relacional
+                            }
+                            else
+                            {
+                                // si viene otro caracter, invalida
+                                caso = -1;
+                            }
+                            break;
+                        case 6:            // lógico validado
+                            cont = lenCad; // salir
+                            break;
+                        case 7: // después de E
+                            if (let == '+' || let == '-')
+                            {
+                                caso = 8; // Digitos despues de + o -
+                            }
+                            else if (strchr(D, let))
+                            {
+                                tipo = 5; // Número Exponencial válido
+                                caso = 9; // estado de "leyendo exponente"
+                            }
+                            else
+                            {
+                                caso = -1; // inválido
+                            }
+                            break;
+
+                        case 8: // después de E+ o E-
+                            if (strchr(D, let))
+                            {
+                                tipo = 5;
+                                caso = 9;
+                            }
+                            else
+                            {
+                                caso = -1; // inválido
+                            }
+                            break;
+
+                        case 9: // leyendo los dígitos del exponente
+                            if (strchr(D, let))
+                            {
+                                tipo = 5; // exponente
+                            }
+                            else
+                            {
+                                caso = -1; // no válido
+                            }
+                            break;
+                        case 10: // después del punto decimal
+                            if (strchr(D, let))
+                            {
+                                tipo = 6;  // decimal
+                                caso = 11; // estamos en parte fraccionaria
+                            }
+                            else
+                            {
+                                caso = -1; // inválido si no hay dígito tras el punto
+                            }
+                            break;
+
+                        case 11: // leyendo parte fraccionaria
+                            if (strchr(D, let))
+                            {
+                                tipo = 6; // decimal
+                            }
+                            else if (let == 'E')
+                            {
+                                caso = 7; // decimal con exponente
+                            }
+                            else
+                            {
+                                caso = -1; // no válido
+                            }
+                            break;
+                        case 12:
+                        if (strchr(AG, let))
+                        {
+                            tipo = 7; // agrupación
+                            caso = -1; // no puede tener más caracteres
+                        }
+                            break;
+                        }
+                        cont++;
+                        let = cadEnt[cont];
+                    }
+
+                    int esReservada = 0;
+                    if (caso == 1 && tipo == 0)
+                    {
+                        for (int r = 0; r < 10; r++)
+                        {
+                            if (strcmp(cadEnt, RESERVADAS[r]) == 0)
+                            {
+                                esReservada = 1;
+                                break;
+                            }
+                        }
+                        if (esReservada)
+                        {
+                            printf("%-10s = PALABRA RESERVADA\n", cadEnt);
+                            agregaTablaSimbolos(cadEnt, "RES");
+                        }
+                        else
+                        {
+                            printf("%-10s = IDENTIFICADOR\n", cadEnt);
+                            agregaTablaSimbolos(cadEnt, "ID");
+                        }
+                    }
+                    else if (caso == 1 && tipo == 2)
+                    {
+                        printf("%-10s = IDENTIFICADOR\n", cadEnt);
+                        agregaTablaSimbolos(cadEnt, "ID");
+                    }
+                    else if (caso == 2 && tipo == 1)
+                    {
+                        printf("%-10s = OPERADOR ARITMETICO\n", cadEnt);
+                        agregaTablaSimbolos(cadEnt, "OA");
+                    }
+                     else if(caso == 3 && tipo == 7)
+                    {
+                        printf("%-10s = AGRUPACION\n", cadEnt);
+                        agregaTablaSimbolos(cadEnt, "AG");
+                    }  
+                    else if (caso == 4 && tipo == 4)
+                    {
+                        printf("%-10s = NUMERO ENTERO\n", cadEnt);
+                        agregaTablaSimbolos(cadEnt, "NE");
+                    }
+                    else if (caso == 4 && tipo == 4)
+                    {
+                        printf("%-10s = NUMERO ENTERO\n", cadEnt);
+                        agregaTablaSimbolos(cadEnt, "NE");
+                    }
+                    else if (caso == 5 && tipo == 2)
+                    {
+                        printf("%-10s = OPERADOR RELACIONAL\n", cadEnt);
+                        agregaTablaSimbolos(cadEnt, "OR");
+                    }
+                    else if (caso == 9 && tipo == 5)
+                    {
+                        printf("%-10s = NUMERO EXPONENCIAL\n", cadEnt);
+                        agregaTablaSimbolos(cadEnt, "NE");
+                    }
+                    else if (caso == 6 && tipo == 3)
+                    {
+                        printf("%-10s = OPERADOR LOGICO\n", cadEnt);
+                        agregaTablaSimbolos(cadEnt, "OL");
+                    }                    
+                    else if (caso == 11 && tipo == 6)
+                    {
+                        printf("%-10s = NUMERO DECIMAL\n", cadEnt);
+                        agregaTablaSimbolos(cadEnt, "ND");
+                    }
+                    
+                    else
+                    {
+                        printf("%-10s = NO VALIDO\n", cadEnt);
+                    }
+
+                    k = 0;
+                }
+                if (cadEnt[i] == '\0')
+                    break;
             }
-            
+            i++;
+        }
 }
 
+void mostrarTablaDeSimbolos()
+{
+    aux = ini;
+    printf("\nID \tLexema \t\t Token\n");
+    while (aux != NULL)
+    {
+        printf("%-8d %-20s %-10s\n", aux->id, aux->lex, aux->tok);
+        aux = aux->sig;
+    }
+}
+void tokenizarPalabras(){
+     int terminado = 0, indice = 0;
+    while(!terminado){
+        tokenizador(palabras[indice]);
+        if (strlen(palabras[indice]) == 0) {
+            terminado = 1;
+        }
+        indice++;
+    }
+}
+void derivacion(){
+    char produccion1[3][10] = {"SO", "SU", "num"};
+    char produccion2[2][10] = {"*S", "/S"};
+    char produccion3[2][10] = {"+S", "-S"};
+    //---------------Clasificacion de casos------------------------
+    for (int i = 0; i < k; i++)
+    {
+        char *end;
+        int has_dot = 0;
+        int isExp = 0;
+        int start = 0;
+
+        // Clasifica el signo del número en caso de que exista
+        if (palabras[i][0] == '+' || palabras[i][0] == '-')
+        {
+            start = 1;
+        }
+
+        // Clasifica si es número decimal o no
+        int is_number = 1;
+        for (int j = start; j < strlen(palabras[i]); j++)
+        {
+            if (!isdigit(palabras[i][j]))
+            {
+                is_number = 0;
+                isExp = 0;
+                has_dot = 0;
+                break;
+            }
+            else if (palabras[i][j] == '.')
+            {
+                has_dot = 1;
+                is_number = 1;
+            }
+            else if (palabras[i][j] == 'e' || palabras[i][j] == 'E' && (palabras[i][j + 1] == '+' || palabras[i][j + 1] == '-'))
+            {
+                isExp = 1;
+                is_number = 1;
+                j++;
+            }
+        }
+        if ((strcmp(palabras[i], "Var") == 0 || strcmp(palabras[i], "var") == 0) && is_number == 0 && has_dot == 0 && isExp == 0){
+            strcpy(lexemas[i], "var");
+        }
+        else if(is_number && strlen(palabras[i]) > start)
+        {
+            strcpy(lexemas[i], "num");
+        }
+        else if (palabras[i][0] == '+' || palabras[i][0] == '-')
+        {
+            strcpy(lexemas[i], "O");
+        }
+        else if (palabras[i][0] == '*' || palabras[i][0] == '/')
+        {
+            strcpy(lexemas[i], "U");
+        }
+        else if(is_number == 0 && isExp == 0 && has_dot == 0){
+            strcpy(lexemas[i], "id");
+        }
+        else if (is_number && has_dot && isExp)
+        {
+            strcpy(lexemas[i], "num");
+        }
+    }
+}
 int main(){
     obtenerRutaArchivo();
     obtencionContenidoArchivo();
     separarPalabrasPorEspacios();
-    printf("\n---------PALABRAS SEPARADAS POR ESPACIOS---------\n");
-    for (int i = 0; i < 50; i++) {
-        if (strlen(palabras[i]) > 0) {
-            printf("%s\n", palabras[i]);
-        }
-    }
-    tokenizador(palabras[0]);
-    
+    tokenizarPalabras();
+    mostrarTablaDeSimbolos();
+    derivacion();
     return 0;
 }
