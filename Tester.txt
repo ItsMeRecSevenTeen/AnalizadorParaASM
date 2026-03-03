@@ -1,11 +1,10 @@
-Var entero x, y, contador ;
-Var decimal z, promedio ;
+Var int x = 0 ;
+Var int y = 1 ;
+Var int z = 2 ;
+Var int promedio = 4 ;
 
-x = 10 ;
-y = -5 ;
-contador = x + 3;
-z = 3.14 ;
-promedio = z + 2.5 ;
+z = x ( 3 + y ) / 20 * 6 ;
+
 if ( ola == 1 )
 {
 
